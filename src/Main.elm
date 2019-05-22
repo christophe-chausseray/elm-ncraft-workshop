@@ -28,15 +28,17 @@ type Msg
     | ResponseReceived (Result Http.Error String)
 
 type alias Model =
-    String
-
-type Result error value
-    = Ok value
-    | Err error
+    {searchTerms : String
+    , response : String
+    }
 
 init : () -> ( Model, Cmd Msg )
 init _ =
-    ( "", Cmd.none )
+    ( { searchTerms = ""
+      , response = ""
+      }
+    , Cmd.none
+    )
 
 
 view : Model -> Html Msg
@@ -44,35 +46,43 @@ view model =
     div [ class "container" ]
         [ h1 [ class "title" ] [ text "elm image search" ]
         , viewForm
+        , viewResponse model
         ]
 
 
 viewForm : Html Msg
 viewForm =
-    form []
+    form [ onSubmit FormSubmitted ]
         [ input
             [ type_ "text"
             , class "medium input"
             , onInput InputChanged
-            , onSubmit FormSubmitted
             ]
             []
         ]
+
+viewResponse : Model -> Html Msg
+viewResponse model =  
+    div [] [ text model.response ]
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
         InputChanged value ->
-            ( value, Cmd.none )
+            ( { model | searchTerms = value }, Cmd.none )
         FormSubmitted ->
             let
                 httpCommand = Http.get
                     { url =
                         "https://unsplash.noprod-b.kmt.orange.com"
                         ++ "/search/photos?query="
-                        ++ model
+                        ++ model.searchTerms
                     , expect = Http.expectString ResponseReceived
                     }
                 in
                 ( model, httpCommand )
+        ResponseReceived (Ok jsonString) ->
+            ({ model | response = jsonString }, Cmd.none)
+        ResponseReceived (Err _) ->
+            ({ model | response = "Communication error" }, Cmd.none)
