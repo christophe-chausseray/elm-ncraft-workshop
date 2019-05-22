@@ -3,10 +3,9 @@ module Main exposing (main)
 import Browser
 import Http
 import Html exposing (..)
-import Html.Attributes exposing (class, type_, src, style)
+import Html.Attributes exposing (class, type_, src, style, value)
 import Html.Events exposing (onInput, onSubmit)
-import Image exposing (..)
-
+import Image exposing (Format(..), Image, filterImages, imageListDecoder)
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
@@ -27,17 +26,20 @@ type Msg
     = InputChanged String
     | FormSubmitted
     | ResponseReceived (Result Http.Error (List Image))
+    | FormatChanged String
 
 type alias Model =
     {searchTerms : String
     , images : List Image
-    , message : String}
+    , message : String
+    , format : Format}
 
 init : () -> ( Model, Cmd Msg )
 init _ =
     ( { searchTerms = ""
       , images = []
       , message = ""
+      , format = Any
       }
     , Cmd.none
     )
@@ -63,6 +65,14 @@ viewForm =
             , onInput InputChanged
             ]
             []
+        , div [class "select"]
+            [select
+                [ onInput FormatChanged ]
+                [ option [value "any"] [ text "Tous" ]
+                , option [value "landscape"] [ text "Paysage" ]
+                , option [value "portrait"] [ text "Portrait" ]
+                ]
+            ]
         ]
 
 viewMessage : Model -> Html Msg
@@ -77,7 +87,7 @@ viewMessage model =
 
 viewResults : Model -> Html Msg
 viewResults model =
-    div [ class "columns is-multiline" ] (List.map viewThumbnail model.images)
+    div [ class "columns is-multiline" ] (List.map viewThumbnail <| filterImages model.format model.images)
 
 viewThumbnail : Image -> Html Msg
 viewThumbnail image =
@@ -105,3 +115,15 @@ update msg model =
             ({ model | images = images }, Cmd.none)
         ResponseReceived (Err _) ->
             ({ model | message = "Communication error" }, Cmd.none)
+        FormatChanged selectedOption -> 
+            let
+                newFormat =
+                    case selectedOption of
+                        "portrait" ->
+                            Portrait
+                        "landscape" ->
+                            Landscape
+                        _ ->
+                            Any
+            in
+            ({ model | format = newFormat}, Cmd.none)
