@@ -3,8 +3,9 @@ module Main exposing (main)
 import Browser
 import Http
 import Html exposing (..)
-import Html.Attributes exposing (class, type_)
+import Html.Attributes exposing (class, type_, src, style)
 import Html.Events exposing (onInput, onSubmit)
+import Image exposing (..)
 
 
 subscriptions : Model -> Sub Msg
@@ -25,17 +26,18 @@ main =
 type Msg
     = InputChanged String
     | FormSubmitted
-    | ResponseReceived (Result Http.Error String)
+    | ResponseReceived (Result Http.Error (List Image))
 
 type alias Model =
     {searchTerms : String
-    , response : String
-    }
+    , images : List Image
+    , message : String}
 
 init : () -> ( Model, Cmd Msg )
 init _ =
     ( { searchTerms = ""
-      , response = ""
+      , images = []
+      , message = ""
       }
     , Cmd.none
     )
@@ -46,13 +48,15 @@ view model =
     div [ class "container" ]
         [ h1 [ class "title" ] [ text "elm image search" ]
         , viewForm
-        , viewResponse model
+        , viewMessage model
+        , viewResults model
         ]
 
 
 viewForm : Html Msg
 viewForm =
-    form [ onSubmit FormSubmitted ]
+    form [ onSubmit FormSubmitted
+         , style "padding-bottom" "1rem" ]
         [ input
             [ type_ "text"
             , class "medium input"
@@ -61,9 +65,24 @@ viewForm =
             []
         ]
 
-viewResponse : Model -> Html Msg
-viewResponse model =  
-    div [] [ text model.response ]
+viewMessage : Model -> Html Msg
+viewMessage model =  
+    if model.message /= "" then
+        div [ class "notification is-danger" ] 
+        [ button [ class "delete" ] []
+        , text model.message 
+        ]
+    else
+        text ""
+
+viewResults : Model -> Html Msg
+viewResults model =
+    div [ class "columns is-multiline" ] (List.map viewThumbnail model.images)
+
+viewThumbnail : Image -> Html Msg
+viewThumbnail image =
+    div [ class "column is-one-quarter" ]
+        [ img [ src image.thumbnailUrl ] [] ]
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -78,11 +97,11 @@ update msg model =
                         "https://unsplash.noprod-b.kmt.orange.com"
                         ++ "/search/photos?query="
                         ++ model.searchTerms
-                    , expect = Http.expectString ResponseReceived
+                    , expect = Http.expectJson ResponseReceived imageListDecoder
                     }
                 in
                 ( model, httpCommand )
-        ResponseReceived (Ok jsonString) ->
-            ({ model | response = jsonString }, Cmd.none)
+        ResponseReceived (Ok images) ->
+            ({ model | images = images }, Cmd.none)
         ResponseReceived (Err _) ->
-            ({ model | response = "Communication error" }, Cmd.none)
+            ({ model | message = "Communication error" }, Cmd.none)
